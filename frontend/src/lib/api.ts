@@ -112,6 +112,13 @@ export type Movie = {
   overview: string | null
 }
 
+export type MovieCreatePayload = {
+  title: string
+  year?: number
+  genres?: string
+  overview?: string
+}
+
 export type RecommendationItem = {
   movie_id: number
   title: string
@@ -139,11 +146,27 @@ export async function login(email: string, password: string): Promise<string> {
   return data.access_token
 }
 
-export async function getMovies(token: string): Promise<Movie[]> {
-  const response = await fetch(`${API_URL}/movies`, {
+export async function getMovies(token: string, query?: string): Promise<Movie[]> {
+  const params = new URLSearchParams()
+  if (query && query.trim().length > 0) {
+    params.set('q', query.trim())
+  }
+
+  const url = `${API_URL}/movies${params.toString() ? `?${params.toString()}` : ''}`
+  const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` }
   })
   if (!response.ok) throw new Error(await buildErrorMessage(response, 'Failed to fetch movies'))
+  return response.json()
+}
+
+export async function createMovie(token: string, payload: MovieCreatePayload): Promise<Movie> {
+  const response = await fetch(`${API_URL}/movies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) throw new Error(await buildErrorMessage(response, 'Failed to create movie'))
   return response.json()
 }
 
