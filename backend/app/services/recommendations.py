@@ -7,27 +7,14 @@ from app.models.user import User
 from app.schemas.recommendations import RecommendationItem, RecommendationResponse
 from app.services.movies import list_movies
 
-
-def _fallback_recommendations(movies: list[dict]) -> list[RecommendationItem]:
-    top = movies[:5]
-    return [
-        RecommendationItem(
-            movie_key=m["movie_key"],
-            title=m["title"],
-            reason="AI is currently limited, showing smart fallback picks.",
-            poster_url=m["poster_url"],
-            year=m["year"],
-            genres=m["genres"],
-        )
-        for m in top
-    ]
-
-
 def generate_recommendations(db: Session, user: User) -> RecommendationResponse:
     ratings = list(db.scalars(select(Rating).where(Rating.user_id == user.id, Rating.score >= 7)).all())
     liked_titles = [rating.movie_title for rating in ratings][:20]
 
-    catalog = list_movies(db)
+    if not liked_titles:
+        return RecommendationResponse(items=[], source="ai_no_preferences")
+
+    catalog = list_movies(db, user.id)
     catalog_payload = [
         {
             "movie_key": movie.movie_key,
@@ -79,4 +66,4 @@ def generate_recommendations(db: Session, user: User) -> RecommendationResponse:
     if normalized_items:
         return RecommendationResponse(items=normalized_items[:5], source="gemini")
 
-    return RecommendationResponse(items=_fallback_recommendations(candidates), source="fallback")
+    return RecommendationResponse(items=[], source="ai_unavailable")

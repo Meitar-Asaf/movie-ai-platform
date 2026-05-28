@@ -21,21 +21,9 @@ class CatalogMovie:
     poster_url: str
 
 
-_catalog_cache: list[CatalogMovie] = []
-_catalog_expires_at = 0.0
 _CATALOG_TTL_SECONDS = 10 * 60
-_FALLBACK_CATALOG: list[dict] = [
-    {"title": "Inception", "year": 2010, "genres": "Sci-Fi, Thriller", "overview": "A skilled extractor enters dreams to plant an idea."},
-    {"title": "The Dark Knight", "year": 2008, "genres": "Action, Crime", "overview": "Batman faces a chaos-driven criminal mastermind in Gotham."},
-    {"title": "Interstellar", "year": 2014, "genres": "Sci-Fi, Drama", "overview": "A team travels through a wormhole to find a new home for humanity."},
-    {"title": "The Matrix", "year": 1999, "genres": "Sci-Fi, Action", "overview": "A hacker discovers reality is a simulation and joins a rebellion."},
-    {"title": "Whiplash", "year": 2014, "genres": "Drama, Music", "overview": "An ambitious drummer is pushed to his limits by a brutal instructor."},
-    {"title": "Parasite", "year": 2019, "genres": "Thriller, Drama", "overview": "A poor family infiltrates a wealthy household with unexpected consequences."},
-    {"title": "Dune", "year": 2021, "genres": "Sci-Fi, Adventure", "overview": "A young nobleman must rise to protect his people and destiny."},
-    {"title": "Mad Max: Fury Road", "year": 2015, "genres": "Action, Adventure", "overview": "Survivors race across a wasteland in a high-octane escape."},
-    {"title": "La La Land", "year": 2016, "genres": "Romance, Music", "overview": "Two dreamers in Los Angeles navigate love and ambition."},
-    {"title": "The Grand Budapest Hotel", "year": 2014, "genres": "Comedy, Adventure", "overview": "A legendary concierge and lobby boy become entangled in a caper."},
-]
+_catalog_cache_by_user: dict[int, list[CatalogMovie]] = {}
+_catalog_expires_by_user: dict[int, float] = {}
 
 
 def _movie_key(title: str, year: int | None) -> str:
@@ -75,28 +63,41 @@ def _normalize_ai_catalog(items: list[dict]) -> list[CatalogMovie]:
     return normalized
 
 
-def _refresh_ai_catalog(force: bool = False) -> None:
-    global _catalog_cache, _catalog_expires_at
+def _liked_titles_for_user(db: Session, user_id: int) -> list[str]:
+    rows = db.scalars(
+        select(Rating).where(Rating.user_id == user_id, Rating.score >= 8)
+    ).all()
+    return [row.movie_title for row in rows][:25]
 
+
+def _refresh_ai_catalog(
+    db: Session,
+    user_id: int,
+    query: str | None = None,
+    force: bool = False,
+) -> None:
     now = time()
-    if not force and _catalog_cache and _catalog_expires_at > now:
+    cached = _catalog_cache_by_user.get(user_id, [])
+    expires_at = _catalog_expires_by_user.get(user_id, 0.0)
+    if not force and cached and expires_at > now:
         return
 
-    ai_items = GeminiClient().generate_catalog(40)
+    liked_titles = _liked_titles_for_user(db, user_id)
+    ai_items = GeminiClient().generate_catalog(40, liked_movies=liked_titles, query=query)
     normalized = _normalize_ai_catalog(ai_items)
-    if normalized:
-        _catalog_cache = normalized
-    elif not _catalog_cache:
-        # Keep the app usable even when Gemini quota/network is unavailable.
-        _catalog_cache = _normalize_ai_catalog(_FALLBACK_CATALOG)
 
-    _catalog_expires_at = now + _CATALOG_TTL_SECONDS
+    if not normalized and liked_titles:
+        ai_items = GeminiClient().generate_catalog(30, liked_movies=liked_titles)
+        normalized = _normalize_ai_catalog(ai_items)
+
+    _catalog_cache_by_user[user_id] = normalized
+    _catalog_expires_by_user[user_id] = now + _CATALOG_TTL_SECONDS
 
 
-def list_movies(db: Session, query: str | None = None) -> list[MovieResponse]:
-    _refresh_ai_catalog()
+def list_movies(db: Session, user_id: int, query: str | None = None) -> list[MovieResponse]:
+    _refresh_ai_catalog(db, user_id, query=query)
 
-    items = _catalog_cache
+    items = _catalog_cache_by_user.get(user_id, [])
     if query:
         query_lower = query.lower()
         items = [movie for movie in items if query_lower in movie.title.lower()]
@@ -115,27 +116,7 @@ def list_movies(db: Session, query: str | None = None) -> list[MovieResponse]:
 
 
 def add_movie(db: Session, payload: MovieCreateRequest) -> MovieResponse:
-    global _catalog_cache
-    movie = CatalogMovie(
-        movie_key=_movie_key(payload.title, payload.year),
-        title=payload.title,
-        year=payload.year,
-        genres=payload.genres,
-        overview=payload.overview,
-        poster_url=payload.poster_url or get_poster_url(payload.title, payload.year),
-    )
-
-    _catalog_cache = [m for m in _catalog_cache if m.movie_key != movie.movie_key]
-    _catalog_cache.insert(0, movie)
-
-    return MovieResponse(
-        movie_key=movie.movie_key,
-        title=movie.title,
-        year=movie.year,
-        genres=movie.genres,
-        overview=movie.overview,
-        poster_url=movie.poster_url,
-    )
+    raise ValueError("Manual movie creation is disabled in AI-only mode")
 
 
 def rate_movie(db: Session, user_id: int, payload: RatingRequest) -> None:
@@ -198,5 +179,4 @@ def set_watchlist(db: Session, user_id: int, payload: WatchlistRequest) -> None:
 
 
 def catalog_count() -> int:
-    _refresh_ai_catalog()
-    return len(_catalog_cache)
+    return sum(len(items) for items in _catalog_cache_by_user.values())

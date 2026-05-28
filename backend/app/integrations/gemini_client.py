@@ -79,16 +79,23 @@ class GeminiClient:
             return []
         return []
 
-    def generate_catalog(self, count: int = 30) -> list[dict]:
+    def generate_catalog(
+        self,
+        count: int = 30,
+        liked_movies: list[str] | None = None,
+        query: str | None = None,
+    ) -> list[dict]:
         if not self.api_key:
             return []
 
         prompt = {
             "instruction": (
-                "Return strict JSON list only. Generate mainstream and diverse movies users are likely to know. "
+                "Return strict JSON list only. Generate movies personalized to user preferences. "
                 "Each item: {title:str,year:int,genres:str,overview:str}. No markdown."
             ),
             "count": max(10, min(count, 60)),
+            "liked_movies": liked_movies or [],
+            "search_query": (query or "").strip(),
         }
 
         url = (

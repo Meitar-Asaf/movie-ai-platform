@@ -14,9 +14,9 @@ router = APIRouter()
 def get_movies(
     q: str | None = Query(default=None),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> list[MovieResponse]:
-    return list_movies(db, q)
+    return list_movies(db, current_user.id, q)
 
 
 @router.post("", response_model=MovieResponse, status_code=status.HTTP_201_CREATED)
@@ -25,7 +25,10 @@ def create_movie(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> MovieResponse:
-    return add_movie(db, payload)
+    try:
+        return add_movie(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.post("/ratings", status_code=status.HTTP_204_NO_CONTENT)
