@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     jwt_exp_minutes: int = 60 * 24
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"
+    cors_origins: str = ""
 
     @model_validator(mode="after")
     def validate_database_url_for_prod(self) -> "Settings":

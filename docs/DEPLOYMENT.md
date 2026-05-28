@@ -44,6 +44,7 @@ This applies:
 6. Add environment variables:
    - APP_ENV=prod
    - DATABASE_URL=your-cloud-database-url
+   - CORS_ORIGINS=https://your-frontend-domain.com
    - JWT_SECRET=strong-random-secret
    - JWT_ALGORITHM=HS256
    - JWT_EXP_MINUTES=1440
@@ -63,6 +64,7 @@ This applies:
 3. Add environment variable:
    - VITE_API_URL=https://your-render-service.onrender.com/api
 4. Deploy and verify app login and movie pages.
+5. Add your Cloudflare Pages domain to backend CORS_ORIGINS in Render and redeploy backend.
 
 ## 5) Optional: Vercel Frontend
 
@@ -71,6 +73,7 @@ If using Vercel instead of Cloudflare Pages:
 - Build command: npm run build
 - Output directory: dist
 - Environment variable: VITE_API_URL=https://your-render-service.onrender.com/api
+- Add your Vercel domain to backend CORS_ORIGINS in Render and redeploy backend.
 
 ## 6) CI Secrets (optional)
 
