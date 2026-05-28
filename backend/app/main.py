@@ -13,10 +13,12 @@ if settings.app_env.lower() not in {"prod", "production"}:
 app = FastAPI(title="Movie AI Recommendations API", version="0.1.0")
 
 allowed_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
-if allowed_origins:
+origin_regex = settings.cors_origin_regex.strip() or None
+if allowed_origins or origin_regex:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
+        allow_origin_regex=origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

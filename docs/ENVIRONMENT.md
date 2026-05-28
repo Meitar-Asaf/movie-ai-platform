@@ -4,6 +4,7 @@
 - APP_ENV: Set to prod in production.
 - DATABASE_URL: Managed PostgreSQL connection string from Supabase.
 - CORS_ORIGINS: Comma-separated frontend origins allowed to call the API.
+- CORS_ORIGIN_REGEX: Optional regex for dynamic origins (example: https://.*\.pages\.dev).
 - JWT_SECRET: Secret key used for token signing.
 - JWT_ALGORITHM: JWT algorithm (default HS256).
 - JWT_EXP_MINUTES: Token expiry in minutes.
