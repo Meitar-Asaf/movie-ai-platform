@@ -24,6 +24,18 @@ class CatalogMovie:
 _catalog_cache: list[CatalogMovie] = []
 _catalog_expires_at = 0.0
 _CATALOG_TTL_SECONDS = 10 * 60
+_FALLBACK_CATALOG: list[dict] = [
+    {"title": "Inception", "year": 2010, "genres": "Sci-Fi, Thriller", "overview": "A skilled extractor enters dreams to plant an idea."},
+    {"title": "The Dark Knight", "year": 2008, "genres": "Action, Crime", "overview": "Batman faces a chaos-driven criminal mastermind in Gotham."},
+    {"title": "Interstellar", "year": 2014, "genres": "Sci-Fi, Drama", "overview": "A team travels through a wormhole to find a new home for humanity."},
+    {"title": "The Matrix", "year": 1999, "genres": "Sci-Fi, Action", "overview": "A hacker discovers reality is a simulation and joins a rebellion."},
+    {"title": "Whiplash", "year": 2014, "genres": "Drama, Music", "overview": "An ambitious drummer is pushed to his limits by a brutal instructor."},
+    {"title": "Parasite", "year": 2019, "genres": "Thriller, Drama", "overview": "A poor family infiltrates a wealthy household with unexpected consequences."},
+    {"title": "Dune", "year": 2021, "genres": "Sci-Fi, Adventure", "overview": "A young nobleman must rise to protect his people and destiny."},
+    {"title": "Mad Max: Fury Road", "year": 2015, "genres": "Action, Adventure", "overview": "Survivors race across a wasteland in a high-octane escape."},
+    {"title": "La La Land", "year": 2016, "genres": "Romance, Music", "overview": "Two dreamers in Los Angeles navigate love and ambition."},
+    {"title": "The Grand Budapest Hotel", "year": 2014, "genres": "Comedy, Adventure", "overview": "A legendary concierge and lobby boy become entangled in a caper."},
+]
 
 
 def _movie_key(title: str, year: int | None) -> str:
@@ -74,6 +86,9 @@ def _refresh_ai_catalog(force: bool = False) -> None:
     normalized = _normalize_ai_catalog(ai_items)
     if normalized:
         _catalog_cache = normalized
+    elif not _catalog_cache:
+        # Keep the app usable even when Gemini quota/network is unavailable.
+        _catalog_cache = _normalize_ai_catalog(_FALLBACK_CATALOG)
 
     _catalog_expires_at = now + _CATALOG_TTL_SECONDS
 
