@@ -27,19 +27,31 @@ class GeminiClient:
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
             f"?key={self.api_key}"
         )
-        body = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": json.dumps(prompt)}
-                    ]
-                }
-            ],
-            "generationConfig": {"temperature": 0.4},
-        }
+        def build_body(payload: dict) -> dict:
+            return {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": json.dumps(payload)}
+                        ]
+                    }
+                ],
+                "generationConfig": {"temperature": 0.4},
+            }
+
+        body = build_body(prompt)
 
         try:
             response = requests.post(url, json=body, timeout=20)
+            if response.status_code == 429 and len(candidates) > 20:
+                logger.warning("Gemini rate-limited. Retrying with a smaller candidate set.")
+                reduced_prompt = {
+                    **prompt,
+                    "candidates": candidates[:20],
+                    "liked_movies": liked_movies[:10],
+                }
+                response = requests.post(url, json=build_body(reduced_prompt), timeout=20)
+
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as exc:
@@ -52,6 +64,12 @@ class GeminiClient:
             .get("parts", [{}])[0]
             .get("text", "[]")
         )
+
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
 
         try:
             parsed = json.loads(text)

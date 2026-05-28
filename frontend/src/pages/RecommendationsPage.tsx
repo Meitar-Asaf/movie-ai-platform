@@ -5,14 +5,24 @@ export default function RecommendationsPage({ token }: { token: string }) {
   const [items, setItems] = useState<RecommendationItem[]>([])
   const [source, setSource] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  async function loadRecommendations() {
+    try {
+      setIsRefreshing(true)
+      setError(null)
+      const data = await getRecommendations(token)
+      setItems(data.items)
+      setSource(data.source)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    getRecommendations(token)
-      .then((data) => {
-        setItems(data.items)
-        setSource(data.source)
-      })
-      .catch((err) => setError((err as Error).message))
+    loadRecommendations()
   }, [token])
 
   return (
@@ -22,10 +32,20 @@ export default function RecommendationsPage({ token }: { token: string }) {
         <p>Updated based on your preferences and watch behavior.</p>
       </div>
 
+      <div className="page-tools">
+        <button className="ghost-btn" onClick={loadRecommendations} disabled={isRefreshing}>
+          {isRefreshing ? 'Refreshing...' : 'Refresh recommendations'}
+        </button>
+      </div>
+
       <p className="source-row">
         Source:
         <span className="chip source-chip">{source || 'loading'}</span>
       </p>
+
+      {source === 'fallback' && !error && (
+        <p className="page-note">AI source is currently limited (quota/rate-limit). Showing smart fallback picks.</p>
+      )}
 
       {error && <p className="alert-error">{error}</p>}
 

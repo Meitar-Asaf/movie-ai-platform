@@ -138,6 +138,18 @@ a.nav-pill {
   color: #94a3b8;
 }
 
+.page-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.page-note {
+  margin: 0 0 12px;
+  color: #fcd34d;
+  font-size: 0.92rem;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -387,6 +399,10 @@ a.nav-pill {
   }
 
   .site-nav {
+    justify-content: flex-start;
+  }
+
+  .page-tools {
     justify-content: flex-start;
   }
 }

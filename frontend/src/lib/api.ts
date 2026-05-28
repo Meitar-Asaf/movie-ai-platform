@@ -154,6 +154,7 @@ export async function getMovies(token: string, query?: string): Promise<Movie[]>
 
   const url = `${API_URL}/movies${params.toString() ? `?${params.toString()}` : ''}`
   const response = await fetch(url, {
+    cache: 'no-store',
     headers: { Authorization: `Bearer ${token}` }
   })
   if (!response.ok) throw new Error(await buildErrorMessage(response, 'Failed to fetch movies'))
@@ -190,6 +191,7 @@ export async function saveWatchlist(token: string, movieId: number, watched = fa
 
 export async function getRecommendations(token: string): Promise<{ items: RecommendationItem[]; source: string }> {
   const response = await fetch(`${API_URL}/recommendations`, {
+    cache: 'no-store',
     headers: { Authorization: `Bearer ${token}` }
   })
   if (!response.ok) throw new Error(await buildErrorMessage(response, 'Failed to fetch recommendations'))
@@ -198,6 +200,7 @@ export async function getRecommendations(token: string): Promise<{ items: Recomm
 
 export async function getAdminStats(token: string): Promise<{ users: number; movies: number }> {
   const response = await fetch(`${API_URL}/admin/stats`, {
+    cache: 'no-store',
     headers: { Authorization: `Bearer ${token}` }
   })
   if (!response.ok) throw new Error(await buildErrorMessage(response, 'Admin access failed'))
