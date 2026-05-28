@@ -6,7 +6,9 @@ from app.core.config import settings
 from app.core.database import Base, engine
 from app.models import Movie, Rating, User, WatchlistItem
 
-Base.metadata.create_all(bind=engine)
+# Schema is managed externally in production. Keep auto-create for local/dev only.
+if settings.app_env.lower() not in {"prod", "production"}:
+    Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Movie AI Recommendations API", version="0.1.0")
 
