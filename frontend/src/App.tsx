@@ -28,43 +28,56 @@ export default function App() {
   )
 
   return (
-    <div className="container">
-      <h1>Movie AI Platform</h1>
-      <nav>
-        <Link to="/movies">Movies</Link>
-        <Link to="/recommendations">Recommendations</Link>
-        <Link to="/admin">Admin</Link>
-        {!token ? <Link to="/login">Login</Link> : <button onClick={authActions.onLogout}>Logout</button>}
-      </nav>
+    <div className="container app-shell">
+      <header className="site-header card">
+        <div>
+          <p className="eyebrow">Discover</p>
+          <h1>Movie AI Platform</h1>
+          <p className="site-subtitle">Smart recommendations with a clean watch-and-rate workflow.</p>
+        </div>
 
-      <Routes>
-        <Route path="/login" element={<LoginPage onLogin={authActions.onLogin} />} />
-        <Route
-          path="/movies"
-          element={
-            <ProtectedRoute token={token}>
-              <MoviesPage token={token!} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/recommendations"
-          element={
-            <ProtectedRoute token={token}>
-              <RecommendationsPage token={token!} />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute token={token}>
-              <AdminPage token={token!} />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to={token ? '/movies' : '/login'} replace />} />
-      </Routes>
+        <nav className="site-nav">
+          <Link className="nav-pill" to="/movies">Movies</Link>
+          <Link className="nav-pill" to="/recommendations">Recommendations</Link>
+          <Link className="nav-pill" to="/admin">Admin</Link>
+          {!token ? (
+            <Link className="nav-pill nav-primary" to="/login">Login</Link>
+          ) : (
+            <button className="nav-pill nav-primary" onClick={authActions.onLogout}>Logout</button>
+          )}
+        </nav>
+      </header>
+
+      <main>
+        <Routes>
+          <Route path="/login" element={<LoginPage onLogin={authActions.onLogin} />} />
+          <Route
+            path="/movies"
+            element={
+              <ProtectedRoute token={token}>
+                <MoviesPage token={token!} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recommendations"
+            element={
+              <ProtectedRoute token={token}>
+                <RecommendationsPage token={token!} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute token={token}>
+                <AdminPage token={token!} />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to={token ? '/movies' : '/login'} replace />} />
+        </Routes>
+      </main>
     </div>
   )
 }

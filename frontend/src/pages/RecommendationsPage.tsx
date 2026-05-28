@@ -16,16 +16,34 @@ export default function RecommendationsPage({ token }: { token: string }) {
   }, [token])
 
   return (
-    <div>
-      <h2>Recommendations</h2>
-      <p>Source: {source}</p>
-      {error && <p>{error}</p>}
-      {items.map((item) => (
-        <div className="card" key={item.movie_id}>
-          <h3>{item.title}</h3>
-          <p>{item.reason}</p>
+    <section>
+      <div className="page-header">
+        <h2>Recommendations</h2>
+        <p>Updated based on your preferences and watch behavior.</p>
+      </div>
+
+      <p className="source-row">
+        Source:
+        <span className="chip source-chip">{source || 'loading'}</span>
+      </p>
+
+      {error && <p className="alert-error">{error}</p>}
+
+      {items.length === 0 && !error ? (
+        <div className="card empty-state">
+          <h3>No recommendations yet</h3>
+          <p>Rate a few movies first, then refresh this page.</p>
         </div>
-      ))}
-    </div>
+      ) : (
+        <div className="card-grid">
+          {items.map((item) => (
+            <article className="card" key={item.movie_id}>
+              <h3>{item.title}</h3>
+              <p className="movie-overview">{item.reason}</p>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }

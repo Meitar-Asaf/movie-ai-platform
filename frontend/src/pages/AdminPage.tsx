@@ -12,16 +12,33 @@ export default function AdminPage({ token }: { token: string }) {
   }, [token])
 
   return (
-    <div>
-      <h2>Admin</h2>
-      {error && <p>{error}</p>}
+    <section>
+      <div className="page-header">
+        <h2>Admin</h2>
+        <p>Monitor platform usage and content inventory.</p>
+      </div>
+
+      {error && <p className="alert-error">{error}</p>}
+
       {stats && (
-        <div className="card">
-          <p>Users: {stats.users}</p>
-          <p>Movies: {stats.movies}</p>
+        <div className="stats-grid">
+          <article className="card stat-card">
+            <p className="stat-label">Users</p>
+            <p className="stat-value">{stats.users}</p>
+          </article>
+          <article className="card stat-card">
+            <p className="stat-label">Movies</p>
+            <p className="stat-value">{stats.movies}</p>
+          </article>
         </div>
       )}
-      {!stats && !error && <p>Only admins can access this page.</p>}
-    </div>
+
+      {!stats && !error && (
+        <div className="card empty-state">
+          <h3>Restricted area</h3>
+          <p>Only users with admin role can access this page.</p>
+        </div>
+      )}
+    </section>
   )
 }
