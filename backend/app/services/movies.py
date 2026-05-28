@@ -79,15 +79,15 @@ def _refresh_ai_catalog(
     now = time()
     cached = _catalog_cache_by_user.get(user_id, [])
     expires_at = _catalog_expires_by_user.get(user_id, 0.0)
-    if not force and cached and expires_at > now:
+    if not force and expires_at > now:
         return
 
     liked_titles = _liked_titles_for_user(db, user_id)
-    ai_items = GeminiClient().generate_catalog(40, liked_movies=liked_titles, query=query)
+    ai_items = GeminiClient().generate_catalog(16, liked_movies=liked_titles, query=query)
     normalized = _normalize_ai_catalog(ai_items)
 
     if not normalized and liked_titles:
-        ai_items = GeminiClient().generate_catalog(30, liked_movies=liked_titles)
+        ai_items = GeminiClient().generate_catalog(10, liked_movies=liked_titles)
         normalized = _normalize_ai_catalog(ai_items)
 
     _catalog_cache_by_user[user_id] = normalized

@@ -23,10 +23,8 @@ class GeminiClient:
             "instruction": "Return strict JSON list with up to 5 objects: {movie_key:str,title:str,reason:str}",
         }
 
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-            f"?key={self.api_key}"
-        )
+        models_to_try = [self.model, "gemini-1.5-flash"]
+
         def build_body(payload: dict) -> dict:
             return {
                 "contents": [
@@ -36,26 +34,33 @@ class GeminiClient:
                         ]
                     }
                 ],
-                "generationConfig": {"temperature": 0.4},
+                "generationConfig": {"temperature": 0.3, "maxOutputTokens": 700},
             }
 
-        body = build_body(prompt)
+        data = None
+        for model_name in models_to_try:
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+                f"?key={self.api_key}"
+            )
+            try:
+                response = requests.post(url, json=build_body(prompt), timeout=20)
+                if response.status_code == 429:
+                    logger.warning("Gemini model %s rate-limited. Retrying with a smaller candidate set.", model_name)
+                    reduced_prompt = {
+                        **prompt,
+                        "candidates": candidates[:12],
+                        "liked_movies": liked_movies[:8],
+                    }
+                    response = requests.post(url, json=build_body(reduced_prompt), timeout=20)
 
-        try:
-            response = requests.post(url, json=body, timeout=20)
-            if response.status_code == 429 and len(candidates) > 20:
-                logger.warning("Gemini rate-limited. Retrying with a smaller candidate set.")
-                reduced_prompt = {
-                    **prompt,
-                    "candidates": candidates[:20],
-                    "liked_movies": liked_movies[:10],
-                }
-                response = requests.post(url, json=build_body(reduced_prompt), timeout=20)
+                response.raise_for_status()
+                data = response.json()
+                break
+            except requests.RequestException as exc:
+                logger.warning("Gemini recommend failed for model %s: %s", model_name, exc)
 
-            response.raise_for_status()
-            data = response.json()
-        except requests.RequestException as exc:
-            logger.warning("Gemini request failed; using fallback recommendations: %s", exc)
+        if data is None:
             return []
 
         text = (
@@ -93,32 +98,49 @@ class GeminiClient:
                 "Return strict JSON list only. Generate movies personalized to user preferences. "
                 "Each item: {title:str,year:int,genres:str,overview:str}. No markdown."
             ),
-            "count": max(10, min(count, 60)),
+            "count": max(8, min(count, 24)),
             "liked_movies": liked_movies or [],
             "search_query": (query or "").strip(),
         }
 
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-            f"?key={self.api_key}"
-        )
-        body = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": json.dumps(prompt)}
-                    ]
-                }
-            ],
-            "generationConfig": {"temperature": 0.3},
-        }
+        models_to_try = [self.model, "gemini-1.5-flash"]
 
-        try:
-            response = requests.post(url, json=body, timeout=20)
-            response.raise_for_status()
-            data = response.json()
-        except requests.RequestException as exc:
-            logger.warning("Gemini catalog generation failed: %s", exc)
+        def build_body(payload: dict) -> dict:
+            return {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": json.dumps(payload)}
+                        ]
+                    }
+                ],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1200},
+            }
+
+        data = None
+        for model_name in models_to_try:
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+                f"?key={self.api_key}"
+            )
+            try:
+                response = requests.post(url, json=build_body(prompt), timeout=20)
+                if response.status_code == 429:
+                    logger.warning("Gemini model %s rate-limited for catalog. Retrying with smaller count.", model_name)
+                    reduced_prompt = {
+                        **prompt,
+                        "count": min(prompt["count"], 10),
+                        "liked_movies": (liked_movies or [])[:8],
+                    }
+                    response = requests.post(url, json=build_body(reduced_prompt), timeout=20)
+
+                response.raise_for_status()
+                data = response.json()
+                break
+            except requests.RequestException as exc:
+                logger.warning("Gemini catalog generation failed for model %s: %s", model_name, exc)
+
+        if data is None:
             return []
 
         text = (
