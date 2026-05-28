@@ -105,11 +105,12 @@ async function buildErrorMessage(response: Response, fallback: string): Promise<
 }
 
 export type Movie = {
-  id: number
+  movie_key: string
   title: string
   year: number | null
   genres: string
   overview: string | null
+  poster_url: string
 }
 
 export type MovieCreatePayload = {
@@ -117,12 +118,24 @@ export type MovieCreatePayload = {
   year?: number
   genres?: string
   overview?: string
+  poster_url?: string
 }
 
 export type RecommendationItem = {
-  movie_id: number
+  movie_key: string
   title: string
   reason: string
+  poster_url: string
+  year: number | null
+  genres: string
+}
+
+type MovieIdentityPayload = {
+  title: string
+  year?: number
+  genres?: string
+  overview?: string
+  poster_url?: string
 }
 
 export async function register(email: string, fullName: string, password: string) {
@@ -171,20 +184,20 @@ export async function createMovie(token: string, payload: MovieCreatePayload): P
   return response.json()
 }
 
-export async function rateMovie(token: string, movieId: number, score: number): Promise<void> {
+export async function rateMovie(token: string, movie: MovieIdentityPayload, score: number): Promise<void> {
   const response = await fetch(`${API_URL}/movies/ratings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ movie_id: movieId, score })
+    body: JSON.stringify({ ...movie, score })
   })
   if (!response.ok) throw new Error(await buildErrorMessage(response, 'Failed to save rating'))
 }
 
-export async function saveWatchlist(token: string, movieId: number, watched = false): Promise<void> {
+export async function saveWatchlist(token: string, movie: MovieIdentityPayload, watched = false): Promise<void> {
   const response = await fetch(`${API_URL}/movies/watchlist`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ movie_id: movieId, watched })
+    body: JSON.stringify({ ...movie, watched })
   })
   if (!response.ok) throw new Error(await buildErrorMessage(response, 'Failed to save watchlist'))
 }

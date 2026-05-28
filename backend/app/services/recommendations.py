@@ -1,91 +1,82 @@
-from time import time
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.integrations.gemini_client import GeminiClient
-from app.models.movie import Movie
 from app.models.rating import Rating
 from app.models.user import User
 from app.schemas.recommendations import RecommendationItem, RecommendationResponse
-
-_RECOMMENDATION_CACHE_TTL_SECONDS = 15 * 60
-_recommendation_cache: dict[int, tuple[float, tuple[int, ...], list[RecommendationItem]]] = {}
+from app.services.movies import list_movies
 
 
-def _fallback_recommendations(movies: list[Movie]) -> list[RecommendationItem]:
+def _fallback_recommendations(movies: list[dict]) -> list[RecommendationItem]:
     top = movies[:5]
     return [
         RecommendationItem(
-            movie_id=m.id,
-            title=m.title,
-            reason="Popular fallback recommendation while AI is unavailable.",
+            movie_key=m["movie_key"],
+            title=m["title"],
+            reason="AI is currently limited, showing smart fallback picks.",
+            poster_url=m["poster_url"],
+            year=m["year"],
+            genres=m["genres"],
         )
         for m in top
     ]
 
 
 def generate_recommendations(db: Session, user: User) -> RecommendationResponse:
-    ratings = list(
-        db.scalars(select(Rating).where(Rating.user_id == user.id, Rating.score >= 7)).all()
-    )
-    liked_movie_ids = [rating.movie_id for rating in ratings]
+    ratings = list(db.scalars(select(Rating).where(Rating.user_id == user.id, Rating.score >= 7)).all())
+    liked_titles = [rating.movie_title for rating in ratings][:20]
 
-    liked_movies = [db.get(Movie, movie_id) for movie_id in liked_movie_ids]
-    liked_titles = [movie.title for movie in liked_movies if movie is not None][:20]
+    catalog = list_movies(db)
+    catalog_payload = [
+        {
+            "movie_key": movie.movie_key,
+            "title": movie.title,
+            "year": movie.year,
+            "genres": movie.genres,
+            "overview": movie.overview,
+            "poster_url": movie.poster_url,
+        }
+        for movie in catalog
+    ]
 
-    preference_signature = tuple(sorted(liked_movie_ids))
-    cached = _recommendation_cache.get(user.id)
-    now = time()
-    if cached:
-        expires_at, cached_signature, cached_items = cached
-        if expires_at > now and cached_signature == preference_signature:
-            return RecommendationResponse(items=cached_items, source="gemini-cache")
-
-    candidate_movies = list(db.scalars(select(Movie).order_by(Movie.title.asc())).all())
-    if not candidate_movies:
+    if not catalog_payload:
         return RecommendationResponse(items=[], source="empty")
 
-    candidate_payload = [
-        {"movie_id": movie.id, "title": movie.title, "genres": movie.genres, "year": movie.year}
-        for movie in candidate_movies
-        if movie.id not in liked_movie_ids
-    ][:80]
-
-    if not candidate_payload:
+    liked_titles_set = {title.lower() for title in liked_titles}
+    candidates = [m for m in catalog_payload if m["title"].lower() not in liked_titles_set]
+    if not candidates:
         return RecommendationResponse(items=[], source="empty")
 
-    client = GeminiClient()
-    ai_items = client.recommend(liked_titles, candidate_payload)
+    ai_items = GeminiClient().recommend(liked_titles, candidates)
+    candidate_by_title = {item["title"].lower(): item for item in candidates}
 
     normalized_items: list[RecommendationItem] = []
     for item in ai_items:
         try:
+            title = str(item["title"]).strip()
+            reason = str(item["reason"]).strip()
+            if not title or not reason:
+                continue
+
+            match = candidate_by_title.get(title.lower())
+            if not match:
+                continue
+
             normalized_items.append(
                 RecommendationItem(
-                    movie_id=int(item["movie_id"]),
-                    title=str(item["title"]),
-                    reason=str(item["reason"]),
+                    movie_key=match["movie_key"],
+                    title=match["title"],
+                    reason=reason,
+                    poster_url=match["poster_url"],
+                    year=match["year"],
+                    genres=match["genres"],
                 )
             )
         except (KeyError, TypeError, ValueError):
             continue
 
     if normalized_items:
-        top_items = normalized_items[:5]
-        _recommendation_cache[user.id] = (
-            now + _RECOMMENDATION_CACHE_TTL_SECONDS,
-            preference_signature,
-            top_items,
-        )
-        return RecommendationResponse(items=top_items, source="gemini")
+        return RecommendationResponse(items=normalized_items[:5], source="gemini")
 
-    if cached:
-        expires_at, cached_signature, cached_items = cached
-        if expires_at > now and cached_signature == preference_signature:
-            return RecommendationResponse(items=cached_items, source="gemini-cache")
-
-    return RecommendationResponse(
-        items=_fallback_recommendations(candidate_movies),
-        source="fallback",
-    )
+    return RecommendationResponse(items=_fallback_recommendations(candidates), source="fallback")

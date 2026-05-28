@@ -162,6 +162,15 @@ a.nav-pill {
   gap: 8px;
 }
 
+.poster {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(15, 23, 42, 0.7);
+}
+
 .movie-card h3 {
   margin: 0;
 }

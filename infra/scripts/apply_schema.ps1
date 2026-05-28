@@ -10,7 +10,7 @@ $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 
 $schemaFiles = @(
     (Join-Path $projectRoot "infra/schema/001_init.sql"),
-    (Join-Path $projectRoot "infra/schema/002_seed_movies.sql")
+    (Join-Path $projectRoot "infra/schema/003_remove_movies_table.sql")
 )
 
 $psqlCmd = Get-Command psql -ErrorAction SilentlyContinue

@@ -25,18 +25,32 @@ export default function MoviesPage({ token }: { token: string }) {
     loadMovies()
   }, [token])
 
-  async function handleRate(movieId: number, score: number) {
+  async function handleRate(movie: Movie, score: number) {
     try {
-      await rateMovie(token, movieId, score)
+      await rateMovie(
+        token,
+        {
+          title: movie.title,
+          year: movie.year ?? undefined,
+          genres: movie.genres,
+          overview: movie.overview ?? undefined,
+          poster_url: movie.poster_url,
+        },
+        score,
+      )
       setFeedback(score >= 10 ? 'Saved: Loved this movie.' : 'Saved: Rating updated.')
     } catch (err) {
       setError((err as Error).message)
     }
   }
 
-  async function handleWatchlist(movieId: number) {
+  async function handleWatchlist(movie: Movie) {
     try {
-      await saveWatchlist(token, movieId)
+      await saveWatchlist(token, {
+        title: movie.title,
+        year: movie.year ?? undefined,
+        poster_url: movie.poster_url,
+      })
       setFeedback('Saved to watchlist.')
     } catch (err) {
       setError((err as Error).message)
@@ -140,12 +154,13 @@ export default function MoviesPage({ token }: { token: string }) {
       {movies.length === 0 && !error ? (
         <div className="card empty-state">
           <h3>No movies yet</h3>
-          <p>Add movies in the backend or seed script, then refresh this page.</p>
+          <p>Try searching a broader term or refresh to regenerate the AI catalog.</p>
         </div>
       ) : (
         <div className="card-grid">
           {movies.map((movie) => (
-            <article className="card movie-card" key={movie.id}>
+            <article className="card movie-card" key={movie.movie_key}>
+              <img className="poster" src={movie.poster_url} alt={`${movie.title} poster`} loading="lazy" />
               <div className="movie-card-head">
                 <h3>{movie.title}</h3>
                 {movie.year ? <span className="chip">{movie.year}</span> : null}
@@ -155,9 +170,9 @@ export default function MoviesPage({ token }: { token: string }) {
               <p className="movie-overview">{movie.overview || 'No overview provided yet.'}</p>
 
               <div className="card-actions">
-                <button onClick={() => handleRate(movie.id, 8)}>Like (8)</button>
-                <button onClick={() => handleRate(movie.id, 10)}>Love (10)</button>
-                <button className="ghost-btn" onClick={() => handleWatchlist(movie.id)}>Add Watchlist</button>
+                <button onClick={() => handleRate(movie, 8)}>Like (8)</button>
+                <button onClick={() => handleRate(movie, 10)}>Love (10)</button>
+                <button className="ghost-btn" onClick={() => handleWatchlist(movie)}>Add Watchlist</button>
               </div>
             </article>
           ))}

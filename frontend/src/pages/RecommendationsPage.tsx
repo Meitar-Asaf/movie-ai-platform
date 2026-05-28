@@ -57,8 +57,12 @@ export default function RecommendationsPage({ token }: { token: string }) {
       ) : (
         <div className="card-grid">
           {items.map((item) => (
-            <article className="card" key={item.movie_id}>
+            <article className="card" key={item.movie_key}>
+              <img className="poster" src={item.poster_url} alt={`${item.title} poster`} loading="lazy" />
               <h3>{item.title}</h3>
+              <p className="movie-meta">
+                {[item.year, item.genres].filter(Boolean).join(' • ') || 'Recommended for you'}
+              </p>
               <p className="movie-overview">{item.reason}</p>
             </article>
           ))}

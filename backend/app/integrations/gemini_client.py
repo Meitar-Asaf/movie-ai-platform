@@ -20,7 +20,7 @@ class GeminiClient:
         prompt = {
             "liked_movies": liked_movies,
             "candidates": candidates,
-            "instruction": "Return strict JSON list with up to 5 objects: {movie_id:int,title:str,reason:str}",
+            "instruction": "Return strict JSON list with up to 5 objects: {movie_key:str,title:str,reason:str}",
         }
 
         url = (
@@ -66,6 +66,61 @@ class GeminiClient:
         )
 
         text = text.strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
+
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
+            return []
+        return []
+
+    def generate_catalog(self, count: int = 30) -> list[dict]:
+        if not self.api_key:
+            return []
+
+        prompt = {
+            "instruction": (
+                "Return strict JSON list only. Generate mainstream and diverse movies users are likely to know. "
+                "Each item: {title:str,year:int,genres:str,overview:str}. No markdown."
+            ),
+            "count": max(10, min(count, 60)),
+        }
+
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+            f"?key={self.api_key}"
+        )
+        body = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": json.dumps(prompt)}
+                    ]
+                }
+            ],
+            "generationConfig": {"temperature": 0.3},
+        }
+
+        try:
+            response = requests.post(url, json=body, timeout=20)
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as exc:
+            logger.warning("Gemini catalog generation failed: %s", exc)
+            return []
+
+        text = (
+            data.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "[]")
+        ).strip()
+
         if text.startswith("```"):
             text = text.strip("`")
             if text.lower().startswith("json"):

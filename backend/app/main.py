@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.models import Movie, Rating, User, WatchlistItem
+from app.models import Rating, User, WatchlistItem
 
 # Schema is managed externally in production. Keep auto-create for local/dev only.
 if settings.app_env.lower() not in {"prod", "production"}:

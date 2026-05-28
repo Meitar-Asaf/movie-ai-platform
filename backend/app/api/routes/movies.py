@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_admin
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.movies import MovieCreateRequest, MovieResponse, RatingRequest, WatchlistRequest
@@ -16,17 +16,16 @@ def get_movies(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> list[MovieResponse]:
-    return [MovieResponse.model_validate(item) for item in list_movies(db, q)]
+    return list_movies(db, q)
 
 
 @router.post("", response_model=MovieResponse, status_code=status.HTTP_201_CREATED)
 def create_movie(
     payload: MovieCreateRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ) -> MovieResponse:
-    movie = add_movie(db, payload)
-    return MovieResponse.model_validate(movie)
+    return add_movie(db, payload)
 
 
 @router.post("/ratings", status_code=status.HTTP_204_NO_CONTENT)
@@ -38,7 +37,7 @@ def add_or_update_rating(
     try:
         rate_movie(db, current_user.id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.post("/watchlist", status_code=status.HTTP_204_NO_CONTENT)
@@ -50,4 +49,4 @@ def add_or_update_watchlist(
     try:
         set_watchlist(db, current_user.id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
