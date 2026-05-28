@@ -4,6 +4,84 @@ type ApiErrorPayload = {
   detail?: string | Array<{ msg?: string }>
 }
 
+type ApiFieldDetail = {
+  loc?: Array<string | number>
+  msg?: string
+}
+
+type ApiValidationPayload = {
+  detail?: ApiFieldDetail[]
+}
+
+export class ApiRequestError extends Error {
+  status: number
+  fieldErrors: Record<string, string>
+
+  constructor(message: string, status: number, fieldErrors: Record<string, string> = {}) {
+    super(message)
+    this.name = 'ApiRequestError'
+    this.status = status
+    this.fieldErrors = fieldErrors
+  }
+}
+
+function toFieldLabel(field: string): string {
+  const map: Record<string, string> = {
+    email: 'Email',
+    full_name: 'Full name',
+    password: 'Password',
+  }
+  return map[field] ?? field
+}
+
+async function buildApiRequestError(response: Response, fallback: string): Promise<ApiRequestError> {
+  const status = response.status
+
+  if (status === 401) {
+    return new ApiRequestError('Email or password does not match our records.', status)
+  }
+
+  try {
+    const validationPayload = (await response.clone().json()) as ApiValidationPayload
+    if (Array.isArray(validationPayload.detail) && validationPayload.detail.length > 0) {
+      const fieldErrors: Record<string, string> = {}
+      const messages: string[] = []
+
+      validationPayload.detail.forEach((item) => {
+        const maybeField = item.loc?.[item.loc.length - 1]
+        if (typeof maybeField === 'string' && item.msg) {
+          const sentence = `${toFieldLabel(maybeField)}: ${item.msg}`
+          fieldErrors[maybeField] = sentence
+          messages.push(sentence)
+        }
+      })
+
+      if (messages.length > 0) {
+        return new ApiRequestError(messages.join('. '), status, fieldErrors)
+      }
+    }
+  } catch {
+    // Continue to generic payload parsing.
+  }
+
+  try {
+    const payload = (await response.json()) as ApiErrorPayload
+    if (typeof payload.detail === 'string' && payload.detail.trim().length > 0) {
+      const detail = payload.detail.trim()
+      if (detail.toLowerCase().includes('email already registered')) {
+        return new ApiRequestError('An account with this email already exists. Try login instead.', status, {
+          email: 'An account with this email already exists.',
+        })
+      }
+      return new ApiRequestError(detail, status)
+    }
+  } catch {
+    // fall through
+  }
+
+  return new ApiRequestError(fallback, status)
+}
+
 async function buildErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
     const payload = (await response.json()) as ApiErrorPayload
@@ -46,7 +124,7 @@ export async function register(email: string, fullName: string, password: string
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, full_name: fullName, password })
   })
-  if (!response.ok) throw new Error(await buildErrorMessage(response, 'Registration failed'))
+  if (!response.ok) throw await buildApiRequestError(response, 'Registration failed')
   return response.json()
 }
 
@@ -56,7 +134,7 @@ export async function login(email: string, password: string): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   })
-  if (!response.ok) throw new Error(await buildErrorMessage(response, 'Login failed'))
+  if (!response.ok) throw await buildApiRequestError(response, 'Login failed')
   const data = await response.json()
   return data.access_token
 }

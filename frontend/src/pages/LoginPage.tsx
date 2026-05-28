@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react'
-import { login, register } from '../lib/api'
+import { ApiRequestError, login, register } from '../lib/api'
 
 type FormErrors = {
   fullName?: string
@@ -10,8 +10,12 @@ type FormErrors = {
 function validateForm(email: string, fullName: string, password: string, isRegister: boolean): FormErrors {
   const errors: FormErrors = {}
 
-  if (isRegister && fullName.trim().length < 2) {
-    errors.fullName = 'Please enter at least 2 characters for your full name.'
+  if (isRegister) {
+    if (fullName.trim().length < 2) {
+      errors.fullName = 'Full name must include at least 2 characters.'
+    } else if (fullName.trim().length > 120) {
+      errors.fullName = 'Full name cannot exceed 120 characters.'
+    }
   }
 
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -23,6 +27,12 @@ function validateForm(email: string, fullName: string, password: string, isRegis
     errors.password = 'Password must be at least 8 characters.'
   } else if (password.length > 128) {
     errors.password = 'Password cannot exceed 128 characters.'
+  } else if (!/[A-Z]/.test(password)) {
+    errors.password = 'Password must include at least one uppercase letter.'
+  } else if (!/[a-z]/.test(password)) {
+    errors.password = 'Password must include at least one lowercase letter.'
+  } else if (!/[0-9]/.test(password)) {
+    errors.password = 'Password must include at least one number.'
   }
 
   return errors
@@ -55,7 +65,17 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string) => voi
       const token = await login(email.trim(), password)
       onLogin(token)
     } catch (err) {
-      setError((err as Error).message)
+      if (err instanceof ApiRequestError) {
+        setError(err.message)
+        setFormErrors((prev) => ({
+          ...prev,
+          fullName: err.fieldErrors.full_name ?? prev.fullName,
+          email: err.fieldErrors.email ?? prev.email,
+          password: err.fieldErrors.password ?? prev.password,
+        }))
+      } else {
+        setError((err as Error).message)
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -114,6 +134,7 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string) => voi
             autoComplete={isRegister ? 'new-password' : 'current-password'}
             required
           />
+          <small className="field-hint">Use 8+ chars with uppercase, lowercase, and a number.</small>
           {formErrors.password && <small className="field-error">{formErrors.password}</small>}
         </label>
 
