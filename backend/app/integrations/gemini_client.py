@@ -1,8 +1,11 @@
 import json
+import logging
 
 import requests
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiClient:
@@ -35,9 +38,13 @@ class GeminiClient:
             "generationConfig": {"temperature": 0.4},
         }
 
-        response = requests.post(url, json=body, timeout=20)
-        response.raise_for_status()
-        data = response.json()
+        try:
+            response = requests.post(url, json=body, timeout=20)
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as exc:
+            logger.warning("Gemini request failed; using fallback recommendations: %s", exc)
+            return []
 
         text = (
             data.get("candidates", [{}])[0]

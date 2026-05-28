@@ -16,7 +16,12 @@ parsed_url = make_url(database_url)
 if parsed_url.drivername == "postgresql":
     database_url = parsed_url.set(drivername="postgresql+psycopg").render_as_string(hide_password=False)
 
-engine = create_engine(database_url, future=True)
+engine = create_engine(
+    database_url,
+    future=True,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 SessionLocal = sessionmaker(bind=engine, class_=Session, autoflush=False, autocommit=False)
 
 
